@@ -1,0 +1,54 @@
+{
+  "name": "loco-draft",
+  "version": "1.0.1",
+  "description": "",
+  "type": "module",
+  "main": "lib/index.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "npm run build:ts && npm run build:tailwind",
+    "build:ts": "tsc",
+    "build:tailwind": "postcss src/styles.css -o lib/styles.css",
+    "watch": "npm run watch:ts && npm run watch:tailwind",
+    "watch:ts": "tsc --watch",
+    "watch:tailwind": "postcss src/styles.css -o lib/styles.css --watch",
+    "clean": "rm tsconfig.tsbuildinfo && rm -rf lib",
+    "clean:windows": "echo 'Cleaning for windows' && del tsconfig.tsbuildinfo && del ./lib",
+    "pack": "electron-builder --dir",
+    "pack:windows": "electron-builder -w",
+    "dist": "electron-builder"
+  },
+  "build": {
+    "appId": "com.loco-draft.test",
+    "linux": {
+      "target": "AppImage"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "portable",
+          "arch": [
+            "x64",
+            "ia32"
+          ]
+        }
+      ]
+    },
+    "publish": null
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "typescript": "^5.4.5",
+    "windows-shortcuts": "^0.1.6"
+  },
+  "devDependencies": {
+    "@types/node": "^20.12.12",
+    "autoprefixer": "^10.4.19",
+    "electron": "^30.0.6",
+    "electron-builder": "^24.13.3",
+    "postcss": "^8.4.38",
+    "tailwindcss": "^3.4.3"
+  }
+}
