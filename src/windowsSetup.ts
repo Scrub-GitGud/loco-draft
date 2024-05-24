@@ -127,7 +127,7 @@ const executeNewVersion = (executablePath: string) => {
     });
 };
 
-export async function windowsSetup() {
+export async function windowsSetup(): Promise<{ persist: boolean }> {
     const latestReleaseInfoUrl = "http://192.168.0.101:8080/windows.json"; // TODO:: Fix This
     const defaultLocoFolderPath = "C:\\Loco";
     const startupFolderLocation =
@@ -165,11 +165,11 @@ export async function windowsSetup() {
                 shortcutToCreateLocation,
                 latestReleaseDestination
             );
-        } else {
-            poorDebug("-> you've opened the wrong version.");
-        }
 
-        // TODO:: delete unnecessary versions
+            // TODO:: delete unnecessary versions
+        } else {
+            poorDebug("-> opened the wrong version.");
+        }
 
         const newVersionExecutableLocation = path.join(
             defaultLocoFolderPath,
@@ -177,12 +177,12 @@ export async function windowsSetup() {
         );
         executeNewVersion(newVersionExecutableLocation);
 
-        app.quit();
+        return { persist: false };
     } else {
         poorDebug("-> No latest release. We are good to go.");
     }
 
-    return true;
+    return { persist: true };
 }
 
 const poorDebug = async (...args: any[]) => {
