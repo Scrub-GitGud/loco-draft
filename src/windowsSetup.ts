@@ -7,26 +7,29 @@ import { exec } from "child_process";
 
 const makeShortcut = async (
     shortcutToCreateLocation: string,
-    latestDownloadedAppLocation: string
+    mainAppLocation: string
 ) => {
-    await ws.create(
-        shortcutToCreateLocation,
-        {
-            target: latestDownloadedAppLocation,
-            args: '💀 "☠️"',
-            runStyle: ws.MIN,
-            desc: "Does cool stuff.",
-        },
-        function (err) {
-            if (err) {
-                poorDebug(err);
-                return;
-            } else {
-                poorDebug("-> Shortcut created!");
-                return;
+    return new Promise((resolve, reject) => {
+        ws.create(
+            shortcutToCreateLocation,
+            {
+                target: mainAppLocation,
+                args: '💀 "☠️"',
+                runStyle: ws.MIN,
+                desc: "Does cool stuff.",
+            },
+            function (err) {
+                if (err) {
+                    poorDebug("-> Shortcut creation failed!", err);
+                    reject(true);
+                    return;
+                } else {
+                    poorDebug("-> Shortcut created.");
+                    resolve(true);
+                }
             }
-        }
-    );
+        );
+    });
 };
 
 const downloadLatestApp = async (
@@ -59,6 +62,24 @@ const downloadLatestApp = async (
 
 export const getCurrentAppVersion = async () => {
     return app.getVersion();
+};
+
+const getRunningPortableAppInfo = () => {
+    const portableAppData = {
+        executableFile: process.env.PORTABLE_EXECUTABLE_FILE,
+        executableDir: process.env.PORTABLE_EXECUTABLE_DIR,
+        executableName: process.env.PORTABLE_EXECUTABLE_APP_FILENAME,
+    };
+
+    if (
+        !portableAppData.executableFile ||
+        !portableAppData.executableDir ||
+        !portableAppData.executableName
+    ) {
+        return null;
+    }
+
+    return portableAppData;
 };
 
 type ReleaseInfoType = {
@@ -110,9 +131,60 @@ const resolveDefaultLocoFolder = async (defaultLocoFolderPath: string) => {
     });
 };
 
-function fileExists(filePath: string) {
+const fileExists = (filePath: string) => {
     return fs.existsSync(filePath);
-}
+};
+
+const getMainExeFileNameFromPath = (filePath: string) => {
+    const _filePath = filePath.replace("\\", "/");
+    return path.basename(_filePath) ?? "loco.exe";
+};
+
+const copyFile = (source: string, destination: string) => {
+    return new Promise((resolve, reject) => {
+        const readStream = fs.createReadStream(source);
+        const writeStream = fs.createWriteStream(destination);
+
+        readStream.on("error", (err) => {
+            reject(err);
+        });
+
+        writeStream.on("error", (err) => {
+            reject(err);
+        });
+
+        writeStream.on("close", () => {
+            resolve("File copied successfully!");
+        });
+
+        readStream.pipe(writeStream);
+    });
+};
+
+const checkIsAnyVersionOfLocoInstalled = async (
+    directoryPath: string,
+    filePrefix: string
+) => {
+    return new Promise((resolve, reject) => {
+        try {
+            const files = fs.readdirSync(directoryPath);
+            const matchingFiles = files.filter((file) =>
+                file.startsWith(filePrefix)
+            );
+
+            if (matchingFiles.length > 0) {
+                resolve(true);
+                console.log("Matching files found:", matchingFiles);
+            } else {
+                resolve(false);
+                console.log("No matching files found");
+            }
+        } catch (error) {
+            poorDebug("-> Error: ", error);
+            resolve(false);
+        }
+    });
+};
 
 const executeNewVersion = (executablePath: string) => {
     exec(`${executablePath}`, (error, stdout, stderr) => {
@@ -128,61 +200,123 @@ const executeNewVersion = (executablePath: string) => {
 };
 
 export async function windowsSetup(): Promise<{ persist: boolean }> {
-    const latestReleaseInfoUrl = "http://192.168.0.101:8080/windows.json"; // TODO:: Fix This
-    const defaultLocoFolderPath = "C:\\Loco";
-    const startupFolderLocation =
-        "%APPDATA%/Microsoft/Windows/Start Menu/Programs/Startup";
-    const shortcutToCreateLocation = path.join(
-        startupFolderLocation,
-        "loco.lnk"
-    );
-
-    const currentVersion = await getCurrentAppVersion();
-    const latestRelease = await resolveLatestRelease(
-        latestReleaseInfoUrl,
-        currentVersion
-    );
-
-    if (latestRelease) {
-        await resolveDefaultLocoFolder(defaultLocoFolderPath);
-
-        const latestReleaseDestination = path.join(
+    try {
+        const latestReleaseInfoUrl = "http://192.168.0.105:8080/windows.json"; // TODO:: Fix This
+        const defaultLocoFolderPath = "C:\\Loco";
+        const startupFolderLocation =
+            "%APPDATA%/Microsoft/Windows/Start Menu/Programs/Startup";
+        const startMenuFolderLocation =
+            "%APPDATA%/Microsoft/Windows/Start Menu/Programs";
+        const desktopFolderLocation = "%USERPROFILE%/Desktop";
+        const mainShortcutLocation = path.join(
             defaultLocoFolderPath,
-            `loco ${latestRelease.version}.exe`
+            "loco.lnk"
         );
 
-        const isLatestAlreadyExists = await fileExists(
-            latestReleaseDestination
-        );
+        const currentVersion = await getCurrentAppVersion();
 
-        if (!isLatestAlreadyExists) {
-            await downloadLatestApp(
-                latestRelease.url,
-                latestReleaseDestination
+        // ! Check if this is the first time
+        const isAnyVersionOfLocoInstalled =
+            await checkIsAnyVersionOfLocoInstalled(
+                defaultLocoFolderPath,
+                "loco"
             );
 
-            await makeShortcut(
-                shortcutToCreateLocation,
-                latestReleaseDestination
+        // ! If first time?
+        // !               -> copy to appropriate folder
+        // !               -> make main shortcut
+        // !               -> make 3 other shortcut (Startup, Start Menu, Desktop)
+        if (!isAnyVersionOfLocoInstalled) {
+            const runningPortableAppInfo = await getRunningPortableAppInfo();
+
+            if (
+                !runningPortableAppInfo ||
+                !runningPortableAppInfo.executableFile
+            )
+                throw new Error(`Running portable app info not found!`);
+
+            const fileName = getMainExeFileNameFromPath(
+                runningPortableAppInfo.executableFile
             );
 
-            // TODO:: delete unnecessary versions
-        } else {
-            poorDebug("-> opened the wrong version.");
+            const copyToLocation = path.join(defaultLocoFolderPath, fileName);
+
+            await copyFile(
+                runningPortableAppInfo.executableFile,
+                copyToLocation
+            );
+
+            // ! Make main shortcut
+            await makeShortcut(mainShortcutLocation, copyToLocation);
+            // ! Make 3 more shortcuts
+            const startupShortcutPath = path.join(
+                startupFolderLocation,
+                "loco.lnk"
+            );
+            const startMenuShortcutPath = path.join(
+                startMenuFolderLocation,
+                "loco.lnk"
+            );
+            const desktopShortcutPath = path.join(
+                desktopFolderLocation,
+                "loco.lnk"
+            );
+            await makeShortcut(startupShortcutPath, mainShortcutLocation);
+            await makeShortcut(startMenuShortcutPath, mainShortcutLocation);
+            await makeShortcut(desktopShortcutPath, mainShortcutLocation);
+
+            return { persist: true };
         }
 
-        const newVersionExecutableLocation = path.join(
-            defaultLocoFolderPath,
-            `"loco ${latestRelease.version}.exe"`
+        const latestRelease = await resolveLatestRelease(
+            latestReleaseInfoUrl,
+            currentVersion
         );
-        executeNewVersion(newVersionExecutableLocation);
 
-        return { persist: false };
-    } else {
-        poorDebug("-> No latest release. We are good to go.");
+        if (latestRelease) {
+            await resolveDefaultLocoFolder(defaultLocoFolderPath);
+
+            const latestReleaseDestination = path.join(
+                defaultLocoFolderPath,
+                `loco ${latestRelease.version}.exe`
+            );
+
+            const isLatestAlreadyExists = await fileExists(
+                latestReleaseDestination
+            );
+
+            if (!isLatestAlreadyExists) {
+                await downloadLatestApp(
+                    latestRelease.url,
+                    latestReleaseDestination
+                );
+
+                await makeShortcut(
+                    mainShortcutLocation,
+                    latestReleaseDestination
+                );
+
+                // TODO:: delete unnecessary versions
+            } else {
+                poorDebug("-> opened the wrong version.");
+            }
+
+            const newVersionExecutableLocation = path.join(
+                defaultLocoFolderPath,
+                `"loco ${latestRelease.version}.exe"`
+            );
+            executeNewVersion(newVersionExecutableLocation);
+
+            return { persist: false };
+        } else {
+            poorDebug("-> No latest release. We are good to go.");
+        }
+
+        return { persist: true };
+    } catch (error) {
+        poorDebug("-> Main Function Error: ", error);
+        return { persist: true };
     }
-
-    return { persist: true };
 }
 
 const poorDebug = async (...args: any[]) => {
@@ -191,12 +325,3 @@ const poorDebug = async (...args: any[]) => {
         fetch(`http://localhost:3000/print?message=${arg}`);
     });
 };
-
-// ! # check version
-// ! # download new version
-// ! # move new version to appropriate location
-// ! # make a shortcut
-// ! # move shortcut to startup location
-// ! # start new version
-// ! # close self
-// ! # delete unnecessary versions
