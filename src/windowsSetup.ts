@@ -268,7 +268,7 @@ export async function windowsSetup(): Promise<{ persist: boolean }> {
             );
             await makeShortcut(startupShortcutPath, mainShortcutLocation);
             await makeShortcut(startMenuShortcutPath, mainShortcutLocation);
-            await makeShortcut(desktopShortcutPath, mainShortcutLocation);
+            // await makeShortcut(desktopShortcutPath, mainShortcutLocation);
 
             return { persist: true };
         }
@@ -326,7 +326,7 @@ export async function windowsSetup(): Promise<{ persist: boolean }> {
 
 const poorDebug = async (...args: any[]) => {
     args.forEach((arg) => {
-        poorDebug(arg);
+        console.log(arg);
         fetch(`http://localhost:3000/print?message=${arg}`);
     });
 };
