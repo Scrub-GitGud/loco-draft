@@ -170,7 +170,7 @@ const checkIsAnyVersionOfLocoInstalled = async (
             if (!fs.existsSync(directoryPath)) {
                 fs.mkdirSync(directoryPath, { recursive: true });
                 poorDebug("Default Loco path created");
-                resolve(true);
+                resolve(false);
             } else {
                 poorDebug("Default Loco path exists.");
             }
@@ -231,9 +231,6 @@ export async function windowsSetup(): Promise<{ persist: boolean }> {
             );
 
         // ! If first time?
-        // !               -> copy to appropriate folder
-        // !               -> make main shortcut
-        // !               -> make 3 other shortcut (Startup, Start Menu, Desktop)
         if (!isAnyVersionOfLocoInstalled) {
             const runningPortableAppInfo = await getRunningPortableAppInfo();
 
