@@ -167,6 +167,14 @@ const checkIsAnyVersionOfLocoInstalled = async (
 ) => {
     return new Promise((resolve, reject) => {
         try {
+            if (!fs.existsSync(directoryPath)) {
+                fs.mkdirSync(directoryPath, { recursive: true });
+                poorDebug("Default Loco path created");
+                resolve(true);
+            } else {
+                poorDebug("Default Loco path exists.");
+            }
+
             const files = fs.readdirSync(directoryPath);
             const matchingFiles = files.filter((file) =>
                 file.startsWith(filePrefix)
@@ -174,10 +182,10 @@ const checkIsAnyVersionOfLocoInstalled = async (
 
             if (matchingFiles.length > 0) {
                 resolve(true);
-                console.log("Matching files found:", matchingFiles);
+                poorDebug("Matching files found:", matchingFiles);
             } else {
                 resolve(false);
-                console.log("No matching files found");
+                poorDebug("No matching files found");
             }
         } catch (error) {
             poorDebug("-> Error: ", error);
@@ -321,7 +329,7 @@ export async function windowsSetup(): Promise<{ persist: boolean }> {
 
 const poorDebug = async (...args: any[]) => {
     args.forEach((arg) => {
-        console.log(arg);
+        poorDebug(arg);
         fetch(`http://localhost:3000/print?message=${arg}`);
     });
 };
